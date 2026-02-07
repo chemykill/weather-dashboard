@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab Environment Monitor</title>
+    <!-- Use CDN for rapid deployment -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body { 
+            background: #f8fafc; 
+            font-family: system-ui, -apple-system, sans-serif; 
+            padding: 20px; 
+            margin: 0; 
+        }
+        .glass-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="max-w-5xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800">Lab Environment Monitor</h1>
+                <p class="text-slate-500 text-sm flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    Pico 2W Streaming (Channel: 3252453)
+                </p>
+            </div>
+            <div id="status-badge" class="px-4 py-2 rounded-full text-xs font-bold bg-slate-200 text-slate-600 uppercase tracking-wider transition-all duration-500">
+                Initializing...
+            </div>
+        </header>
+
+        <!-- Real-time Metric Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="glass-card border-t-4 border-red-500 transition-transform hover:scale-[1.02]">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-tight">Temperature</p>
+                <div class="flex items-baseline gap-1 mt-2">
+                    <span id="temp" class="text-4xl font-bold text-slate-800">--</span>
+                    <span class="text-slate-400 text-lg">&deg;C</span>
+                </div>
+            </div>
+            
+            <div class="glass-card border-t-4 border-blue-500 transition-transform hover:scale-[1.02]">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-tight">Humidity</p>
+                <div class="flex items-baseline gap-1 mt-2">
+                    <span id="hum" class="text-4xl font-bold text-slate-800">--</span>
+                    <span class="text-slate-400 text-lg">%</span>
+                </div>
+            </div>
+            
+            <div class="glass-card border-t-4 border-amber-500 transition-transform hover:scale-[1.02]">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-tight">Light Level</p>
+                <div class="flex items-baseline gap-1 mt-2">
+                    <span id="light" class="text-4xl font-bold text-slate-800">--</span>
+                    <span class="text-slate-400 text-sm uppercase">ADC</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historical Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="glass-card">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-sm font-bold text-slate-700 uppercase">Temperature History</h3>
+                    <span class="text-[10px] text-slate-400 font-mono">Last 20 Samples</span>
+                </div>
+                <div class="h-[250px]">
+                    <canvas id="tChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="glass-card">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-sm font-bold text-slate-700 uppercase">Humidity History</h3>
+                    <span class="text-[10px] text-slate-400 font-mono">Last 20 Samples</span>
+                </div>
+                <div class="h-[250px]">
+                    <canvas id="hChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="mt-12 pt-8 border-t border-slate-200 text-center text-slate-400 text-xs">
+            <p>Data provided by ThingSpeak API &bull; Refreshes every 20 seconds</p>
+        </footer>
+    </div>
+
+    <script>
+        const CID = "3252453";
+        const KEY = "B72NLDVT8M1BVATD";
+        const charts = {};
+
+        function updateStatus(state, message) {
+            const badge = document.getElementById("status-badge");
+            badge.innerText = message;
+            
+            if (state === 'live') {
+                badge.className = "px-4 py-2 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 uppercase tracking-wider";
+            } else if (state === 'error') {
+                badge.className = "px-4 py-2 rounded-full text-xs font-bold bg-red-100 text-red-700 uppercase tracking-wider";
+            } else {
+                badge.className = "px-4 py-2 rounded-full text-xs font-bold bg-slate-200 text-slate-600 uppercase tracking-wider";
+            }
+        }
+
+        function createChart(id, label, color) {
+            const ctx = document.getElementById(id).getContext('2d');
+            return new Chart(ctx, {
+                type: "line",
+                data: { 
+                    labels: [], 
+                    datasets: [{ 
+                        label: label, 
+                        borderColor: color, 
+                        backgroundColor: color + '22',
+                        data: [], 
+                        tension: 0.4, 
+                        fill: true, 
+                        pointRadius: 2,
+                        pointHoverRadius: 5,
+                        borderWidth: 2
+                    }] 
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false } 
+                    }, 
+                    scales: { 
+                        x: { 
+                            grid: { display: false },
+                            ticks: { font: { size: 10 } }
+                        },
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: '#f1f5f9' },
+                            ticks: { font: { size: 10 } }
+                        }
+                    } 
+                }
+            });
+        }
+
+        async function update() {
+            try {
+                // Cache busting query parameter
+                const url = `https://api.thingspeak.com/channels/${CID}/feeds.json?api_key=${KEY}&results=20&timestamp=${Date.now()}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                const feeds = data.feeds;
+                
+                if (!feeds || feeds.length === 0) return;
+                
+                const latest = feeds[feeds.length - 1];
+
+                // Update text values
+                document.getElementById("temp").innerText = latest.field1 || "--";
+                document.getElementById("hum").innerText = latest.field2 || "--";
+                document.getElementById("light").innerText = latest.field3 || "--";
+                
+                updateStatus('live', 'System Live');
+
+                // Process chart data
+                const labels = feeds.map(f => {
+                    const d = new Date(f.created_at);
+                    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                });
+                
+                if (charts.t) {
+                    charts.t.data.labels = labels;
+                    charts.t.data.datasets[0].data = feeds.map(f => f.field1);
+                    charts.t.update('none'); // Update without animation for performance
+                }
+
+                if (charts.h) {
+                    charts.h.data.labels = labels;
+                    charts.h.data.datasets[0].data = feeds.map(f => f.field2);
+                    charts.h.update('none');
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                updateStatus('error', 'Connection Error');
+            }
+        }
+
+        window.onload = () => {
+            charts.t = createChart("tChart", "Temperature", "#ef4444");
+            charts.h = createChart("hChart", "Humidity", "#3b82f6");
+            
+            // Initial fetch
+            update();
+            
+            // Refresh every 20 seconds
+            setInterval(update, 20000);
+        };
+    </script>
+</body>
+</html>
