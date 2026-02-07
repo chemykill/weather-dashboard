@@ -21,21 +21,14 @@
             padding: 1.5rem;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        /* Custom scrollbar for a cleaner look */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
-        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body>
-    <div class="max-w-5xl mx-auto">
+    <div class="max-w-7xl mx-auto">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
                 <h1 class="text-3xl font-bold text-slate-800">Lab Environment Monitor</h1>
@@ -52,7 +45,7 @@
         <!-- Real-time Metric Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div class="glass-card border-t-4 border-red-500 transition-transform hover:scale-[1.02]">
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-tight">Temperature</p>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-tight">Current Temp</p>
                 <div class="flex items-baseline gap-1 mt-2">
                     <span id="temp" class="text-4xl font-bold text-slate-800">--</span>
                     <span class="text-slate-400 text-lg">&deg;C</span>
@@ -60,7 +53,7 @@
             </div>
             
             <div class="glass-card border-t-4 border-blue-500 transition-transform hover:scale-[1.02]">
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-tight">Humidity</p>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-tight">Current Humidity</p>
                 <div class="flex items-baseline gap-1 mt-2">
                     <span id="hum" class="text-4xl font-bold text-slate-800">--</span>
                     <span class="text-slate-400 text-lg">%</span>
@@ -68,7 +61,7 @@
             </div>
             
             <div class="glass-card border-t-4 border-amber-500 transition-transform hover:scale-[1.02]">
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-tight">Light Level</p>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-tight">Current Light</p>
                 <div class="flex items-baseline gap-1 mt-2">
                     <span id="light" class="text-4xl font-bold text-slate-800">--</span>
                     <span class="text-slate-400 text-sm uppercase">ADC</span>
@@ -76,145 +69,145 @@
             </div>
         </div>
 
-        <!-- Historical Charts -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="glass-card">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-sm font-bold text-slate-700 uppercase">Temperature History</h3>
-                    <span class="text-[10px] text-slate-400 font-mono">Last 20 Samples</span>
-                </div>
-                <div class="h-[250px]">
-                    <canvas id="tChart"></canvas>
-                </div>
+        <!-- Section: Real-Time View (Last 20 Samples) -->
+        <div class="mb-12">
+            <h2 class="text-lg font-bold text-slate-700 mb-4 border-l-4 border-emerald-500 pl-3">Live Feed (Last 10 Minutes)</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="glass-card"><canvas id="tChart" class="h-[180px]"></canvas></div>
+                <div class="glass-card"><canvas id="hChart" class="h-[180px]"></canvas></div>
+                <div class="glass-card"><canvas id="lChart" class="h-[180px]"></canvas></div>
             </div>
-            
-            <div class="glass-card">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-sm font-bold text-slate-700 uppercase">Humidity History</h3>
-                    <span class="text-[10px] text-slate-400 font-mono">Last 20 Samples</span>
+        </div>
+
+        <!-- Section: 24-Hour Long Range Trends -->
+        <div class="mb-12">
+            <h2 class="text-lg font-bold text-slate-700 mb-4 border-l-4 border-indigo-500 pl-3">Historical Trends (Last 24+ Hours)</h2>
+            <div class="space-y-6">
+                <div class="glass-card">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase mb-4 tracking-widest">Long Range Temperature (&deg;C)</h3>
+                    <div class="h-[250px]"><canvas id="tLongChart"></canvas></div>
                 </div>
-                <div class="h-[250px]">
-                    <canvas id="hChart"></canvas>
+                <div class="glass-card">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase mb-4 tracking-widest">Long Range Humidity (%)</h3>
+                    <div class="h-[250px]"><canvas id="hLongChart"></canvas></div>
+                </div>
+                <div class="glass-card">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase mb-4 tracking-widest">Long Range Light Level (ADC)</h3>
+                    <div class="h-[250px]"><canvas id="lLongChart"></canvas></div>
                 </div>
             </div>
         </div>
         
         <footer class="mt-12 pt-8 border-t border-slate-200 text-center text-slate-400 text-xs">
-            <p>Data provided by ThingSpeak API &bull; Refreshes every 20 seconds</p>
+            <p>Data provided by ThingSpeak API &bull; Live updates every 20s &bull; Historical data fetched on load</p>
         </footer>
     </div>
 
     <script>
         const CID = "3252453";
-        const KEY = "B72NLDVT8M1BVATD";
+        const KEY = "B72NLDVT8M1BVATD"; 
         const charts = {};
 
         function updateStatus(state, message) {
             const badge = document.getElementById("status-badge");
             badge.innerText = message;
-            
-            if (state === 'live') {
-                badge.className = "px-4 py-2 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 uppercase tracking-wider";
-            } else if (state === 'error') {
-                badge.className = "px-4 py-2 rounded-full text-xs font-bold bg-red-100 text-red-700 uppercase tracking-wider";
-            } else {
-                badge.className = "px-4 py-2 rounded-full text-xs font-bold bg-slate-200 text-slate-600 uppercase tracking-wider";
-            }
+            badge.className = `px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-colors ${
+                state === 'live' ? 'bg-emerald-100 text-emerald-700' : 
+                state === 'error' ? 'bg-red-100 text-red-700' : 'bg-slate-200 text-slate-600'
+            }`;
         }
 
-        function createChart(id, label, color) {
+        function createChart(id, label, color, isLongRange = false) {
             const ctx = document.getElementById(id).getContext('2d');
             return new Chart(ctx, {
                 type: "line",
-                data: { 
-                    labels: [], 
-                    datasets: [{ 
-                        label: label, 
-                        borderColor: color, 
-                        backgroundColor: color + '22',
-                        data: [], 
-                        tension: 0.4, 
-                        fill: true, 
-                        pointRadius: 2,
-                        pointHoverRadius: 5,
-                        borderWidth: 2
-                    }] 
-                },
+                data: { labels: [], datasets: [{ 
+                    label: label, borderColor: color, backgroundColor: color + '15',
+                    data: [], tension: 0.3, fill: true, pointRadius: isLongRange ? 0 : 2, borderWidth: isLongRange ? 1.5 : 2
+                }]},
                 options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { display: false } 
-                    }, 
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
                     scales: { 
-                        x: { 
-                            grid: { display: false },
-                            ticks: { font: { size: 10 } }
-                        },
-                        y: {
-                            beginAtZero: false,
-                            grid: { color: '#f1f5f9' },
-                            ticks: { font: { size: 10 } }
-                        }
+                        x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: isLongRange ? 6 : 10 } },
+                        y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 9 } } }
                     } 
                 }
             });
         }
 
-        async function update() {
+        async function fetchHistory() {
             try {
-                // Cache busting query parameter
-                const url = `https://api.thingspeak.com/channels/${CID}/feeds.json?api_key=${KEY}&results=20&timestamp=${Date.now()}`;
-                const response = await fetch(url);
-                
-                if (!response.ok) throw new Error('Network response was not ok');
-                
+                // Fetch up to 8000 points (max ThingSpeak allows) for the long range charts
+                const response = await fetch(`https://api.thingspeak.com/channels/${CID}/feeds.json?api_key=${KEY}&results=8000`);
                 const data = await response.json();
                 const feeds = data.feeds;
                 
+                const labels = feeds.map(f => {
+                    const d = new Date(f.created_at);
+                    return d.toLocaleDateString([], {month:'short', day:'numeric'}) + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                });
+
+                if (charts.tLong) {
+                    charts.tLong.data.labels = labels;
+                    charts.tLong.data.datasets[0].data = feeds.map(f => f.field1);
+                    charts.tLong.update();
+                }
+                if (charts.hLong) {
+                    charts.hLong.data.labels = labels;
+                    charts.hLong.data.datasets[0].data = feeds.map(f => f.field2);
+                    charts.hLong.update();
+                }
+                if (charts.lLong) {
+                    charts.lLong.data.labels = labels;
+                    charts.lLong.data.datasets[0].data = feeds.map(f => f.field3);
+                    charts.lLong.update();
+                }
+            } catch (e) { console.error("History Load Failed", e); }
+        }
+
+        async function updateLive() {
+            try {
+                const url = `https://api.thingspeak.com/channels/${CID}/feeds.json?api_key=${KEY}&results=20&_=${Date.now()}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                const feeds = data.feeds;
                 if (!feeds || feeds.length === 0) return;
                 
                 const latest = feeds[feeds.length - 1];
-
-                // Update text values
                 document.getElementById("temp").innerText = latest.field1 || "--";
                 document.getElementById("hum").innerText = latest.field2 || "--";
                 document.getElementById("light").innerText = latest.field3 || "--";
                 
                 updateStatus('live', 'System Live');
 
-                // Process chart data
-                const labels = feeds.map(f => {
-                    const d = new Date(f.created_at);
-                    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                });
+                const labels = feeds.map(f => new Date(f.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
                 
-                if (charts.t) {
-                    charts.t.data.labels = labels;
-                    charts.t.data.datasets[0].data = feeds.map(f => f.field1);
-                    charts.t.update('none'); // Update without animation for performance
-                }
-
-                if (charts.h) {
-                    charts.h.data.labels = labels;
-                    charts.h.data.datasets[0].data = feeds.map(f => f.field2);
-                    charts.h.update('none');
-                }
-            } catch (error) {
-                console.error('Fetch error:', error);
-                updateStatus('error', 'Connection Error');
-            }
+                ['t', 'h', 'l'].forEach((key, idx) => {
+                    if (charts[key]) {
+                        charts[key].data.labels = labels;
+                        charts[key].data.datasets[0].data = feeds.map(f => f[`field${idx+1}`]);
+                        charts[key].update('none');
+                    }
+                });
+            } catch (error) { updateStatus('error', 'Update Failed'); }
         }
 
         window.onload = () => {
-            charts.t = createChart("tChart", "Temperature", "#ef4444");
-            charts.h = createChart("hChart", "Humidity", "#3b82f6");
+            // Setup Live Charts
+            charts.t = createChart("tChart", "Temp", "#ef4444");
+            charts.h = createChart("hChart", "Hum", "#3b82f6");
+            charts.l = createChart("lChart", "Light", "#f59e0b");
+
+            // Setup Long Range Charts
+            charts.tLong = createChart("tLongChart", "Temp History", "#ef4444", true);
+            charts.hLong = createChart("hLongChart", "Hum History", "#3b82f6", true);
+            charts.lLong = createChart("lLongChart", "Light History", "#f59e0b", true);
             
-            // Initial fetch
-            update();
-            
-            // Refresh every 20 seconds
-            setInterval(update, 20000);
+            updateLive();
+            fetchHistory(); // Large pull for trends
+            setInterval(updateLive, 20000);
+            setInterval(fetchHistory, 300000); // Update trends every 5 mins
         };
     </script>
 </body>
